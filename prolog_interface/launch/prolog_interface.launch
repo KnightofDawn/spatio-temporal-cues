@@ -1,0 +1,8 @@
+<launch>	
+	<master auto="start"/>
+	<node pkg="prolog_interface" type="prolog_interface" name="prolog_interface" output="screen">
+		<param name="prolog_binary" value="/usr/lib/swi-prolog/bin/amd64" type="str"/> 
+		<param name="prolog_path" value="$(find prolog_interface)/pl"/>
+		<param name="prolog_file_1" value="parser.pl" type="str"/>
+	</node> 
+</launch>

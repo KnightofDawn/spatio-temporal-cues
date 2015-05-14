@@ -1,0 +1,4 @@
+string predicate
+string[] arg
+---
+prolog_interface/solution[] ris
