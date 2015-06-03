@@ -1,0 +1,11 @@
+<launch>
+  <arg name="env" default="aaf_sim"/> 
+
+  <!-- Scitos robot -->
+  <include file="$(find strands_morse)/launch/scitos.launch"/>
+  <include file="$(find strands_morse)/launch/generate_camera_topics.launch" />	
+  
+  <node pkg="strands_morse" type="simulator.sh" respawn="false" name="strands_morse" output="screen" args="aaf $(arg env).py"/>
+
+
+</launch>	
