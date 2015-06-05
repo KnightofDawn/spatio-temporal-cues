@@ -10,6 +10,3 @@ Additional packages needed:
 - mongodb
 - soma https://github.com/strands-project/soma
 - strands_morse: https://github.com/g-gemignani/strands_morse
-
-#To start the simulation:
-#- Install Petri Net Plans by following the readme
