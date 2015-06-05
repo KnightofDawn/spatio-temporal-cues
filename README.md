@@ -10,3 +10,12 @@ Additional packages needed:
 - mongodb
 - soma https://github.com/strands-project/soma
 - strands_morse: https://github.com/g-gemignani/strands_morse
+
+
+
+## Requirements
+
+Scikit Learn and Matplotlib
+
+`sudo apt-get install python-sklearn python-matplotlib`
+
