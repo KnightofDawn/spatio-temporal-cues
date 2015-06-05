@@ -1,4 +1,0 @@
-<launch>
-    <include file="$(find strands_morse)/sapienza/launch/sapienza_robot.launch"/>
-    <include file="$(find strands_morse)/sapienza/launch/sapienza_navigation.launch"/>
-</launch>
