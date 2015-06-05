@@ -1,0 +1,13 @@
+<launch>
+
+  <!-- Run the map server >
+  <node name="map_server" pkg="map_server" type="map_server" args="$(find strands_morse)/sapienza/maps/map.yaml"/>
+
+  <node pkg="tf" type="static_transform_publisher" name="env_broadcaster" 
+        args="-4.1 -3.75 0 1.57 0 0 /map /env/base_link 200">
+  </node-->
+  <!-- 2D Navigation -->
+  <include file="$(find scitos_2d_navigation)/launch/scitos_2d_nav.launch">
+      <arg name="map" value="$(find strands_morse)/sapienza/maps/map.yaml"/>
+  </include>
+</launch>
