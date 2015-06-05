@@ -9,8 +9,63 @@ from geometry_msgs.msg import Pose, Point, Quaternion
 from std_msgs.msg import Header
 import sensor_msgs.point_cloud2 as pc2
 from sensor_msgs.msg import PointCloud2, PointField
+import numpy as np
+from sklearn import mixture
+from matplotlib.colors import LogNorm, Normalize
+import matplotlib.pyplot as plt
 
-def create_cloud_xyz32(header, points):
+
+def map_range(start, end, step):
+    while start <= end:
+        yield start
+        start += step
+
+
+def gmm_to_pc2(gmm, x_start, y_start, resolution, width, height):
+    """
+    Creates a PointCloud2 by sampling a regular grid of points from the given gmm.
+    """
+    pc = PointCloud2()
+    pc.header.stamp = rospy.get_rostime()
+    pc.header.frame_id = 'map'
+
+ 
+    xy_points = []
+    for x in map_range(x_start, x_start + width, resolution):
+        for y in map_range(y_start, y_start + height, resolution):
+            xy_points.append([x, y])
+
+
+    
+    logprobs, responsibilities = gmm.score_samples(xy_points)
+
+    normaliser = Normalize()
+    # normaliser.
+    # probs = normaliser(logprobs)
+
+    # convert back to [0,1] for my sanity
+    probs = np.exp(logprobs)
+
+    normaliser.autoscale(probs)
+    probs = normaliser(probs)
+
+    heights = np.array([[1] for i in range(len(probs))])
+
+    cm = plt.get_cmap('jet')    
+    colours = cm(probs, bytes=True)
+
+
+    cloud = []
+    for i in range(len(probs)):
+        cloud.append([xy_points[i][0], xy_points[i][1], 2*probs[i], pack_rgb(colours[i][0], colours[i][1], colours[i][2])])
+ 
+    return create_cloud_xyzrgb(pc.header, cloud)
+  
+    
+
+
+
+def create_cloud_xyzrgb(header, points):
     """
     Create a L{sensor_msgs.msg.PointCloud2} message with 3 float32 fields (x, y, z).
 
@@ -52,6 +107,8 @@ if __name__ == '__main__':
 
     # grid_publisher = rospy.Publisher('/gmm_model', OccupancyGrid, queue_size=1)
 
+    # colour map stuff
+    # plt.get_cmap(name)    
 
     r = rospy.Rate(1)
     # while not rospy.is_shutdown():
@@ -60,17 +117,15 @@ if __name__ == '__main__':
 
     pub_cloud = rospy.Publisher("/gmm_points", PointCloud2, queue_size=1)
 
-    pcloud = PointCloud2()
-    pcloud.header.stamp = rospy.get_rostime()
-    pcloud.header.frame_id = 'map'
 
-    # make point cloud
-    cloud = []
-    for x in range (0, 10):
-        for y in range (0, 10):
-            cloud.append([x,y,1, pack_rgb(0,0,255)])
 
-    pcloud = create_cloud_xyz32(pcloud.header, cloud)
+    gmm = mixture.GMM(n_components=2, covariance_type='spherical')
+    gmm.weights_ = np.array([1,1])
+    gmm.means_ = np.array([[1,1],[2,2]])
+    gmm.covars_ = np.array([[0.2,0.2],[0.1,0.1]])
+
+ 
+    pcloud = gmm_to_pc2(gmm, 0, 0, 0.02, 4, 4)
   
     while not rospy.is_shutdown():
         pub_cloud.publish(pcloud)
