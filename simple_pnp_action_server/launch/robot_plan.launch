@@ -1,0 +1,14 @@
+<launch>    
+    <arg name="planname" default="simple_plan" />
+    <arg name="use_gui" default="false" />
+
+	<node pkg="simple_pnp_action_server" type="pnpas" name="pnpas" args="" output="screen" />
+
+	<node pkg="pnp_ros" type="pnp_node" name="pnp" args="" output="screen">
+	    <param name="plan_folder" value="$(find simple_pnp_action_server)/plans/" />
+	    <param name="current_plan" value="$(arg planname)" />
+	    <param name="use_java_connection" value="$(arg use_gui)" />
+	</node>
+
+</launch>
+
