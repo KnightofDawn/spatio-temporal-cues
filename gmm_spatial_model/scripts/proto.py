@@ -21,6 +21,8 @@ def map_range(start, end, step):
         start += step
 
 
+
+
 def gmm_to_pc2(gmm, x_start, y_start, resolution, width, height):
     """
     Creates a PointCloud2 by sampling a regular grid of points from the given gmm.
