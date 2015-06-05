@@ -28,32 +28,24 @@ def gmm_to_pc2(gmm, x_start, y_start, resolution, width, height):
     pc = PointCloud2()
     pc.header.stamp = rospy.get_rostime()
     pc.header.frame_id = 'map'
-
  
     xy_points = []
     for x in map_range(x_start, x_start + width, resolution):
         for y in map_range(y_start, y_start + height, resolution):
             xy_points.append([x, y])
-
-
     
     logprobs, responsibilities = gmm.score_samples(xy_points)
-
-    normaliser = Normalize()
-    # normaliser.
-    # probs = normaliser(logprobs)
-
+    
     # convert back to [0,1] for my sanity
     probs = np.exp(logprobs)
 
+    # and normalise to range to make the visualisation prettier
+    normaliser = Normalize()
     normaliser.autoscale(probs)
     probs = normaliser(probs)
 
-    heights = np.array([[1] for i in range(len(probs))])
-
-    cm = plt.get_cmap('jet')    
-    colours = cm(probs, bytes=True)
-
+    colour_map = plt.get_cmap('jet')    
+    colours = colour_map(probs, bytes=True)
 
     cloud = []
     for i in range(len(probs)):
