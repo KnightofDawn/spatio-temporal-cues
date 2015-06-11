@@ -7,15 +7,12 @@ Current packages:
 
 Additional packages needed:
 - Petri Net Plans available at: https://github.com/iocchi/PetriNetPlans. 
-- mongodb
-- soma https://github.com/strands-project/soma
 - strands_morse: https://github.com/g-gemignani/strands_morse
 
 
 
 ## Requirements
 
-Scikit Learn and Matplotlib
+Install dependencies with something like this:
 
-`sudo apt-get install python-sklearn python-matplotlib`
-
+`rosdep install --from-paths spatio-temporal-cues  --ignore-src`
