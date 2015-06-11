@@ -26,3 +26,11 @@
 *.exe
 *.out
 *.app
+
+
+*~
+*pyc
+*BAK
+*.blend[12]
+
+*CATKIN_IGNORE
