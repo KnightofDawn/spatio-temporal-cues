@@ -175,7 +175,8 @@ class SpatialModelServer(object):
 
         model = Near(soma_obj.pose, 0.5)
         if rospy.get_param('~visualise_model', True):
-            pcloud = model_to_pc2(model, -2, -2, 0.02, 4, 4)
+            map_width = 4
+            pcloud = model_to_pc2(model, soma_obj.pose.position.x - map_width / 2, soma_obj.pose.position.y - map_width / 2, 0.02, map_width, map_width)
             self.model_cloud.publish(pcloud)        
 
         bounds = self.soma_roi_query.get_polygon(roi)
