@@ -4,6 +4,7 @@
 # First thing is to publish a map centred at the location of the robot and visualise it
 
 import rospy
+from gmm_spatial_model.msg import SpatialPredicate
 import gmm_spatial_model.srv as sm_srv
 import sys
 if __name__ == '__main__':
@@ -22,8 +23,7 @@ if __name__ == '__main__':
         try:
             pred = sys.argv[1]
             args = sys.argv[2:]
-            print pred
-            print args
-            # resp1 = get_pose(x, y)
+            rospy.loginfo('getting pose for: %s(%s)' % (pred, args))                        
+            get_pose(SpatialPredicate(pred, args))
         except rospy.ServiceException as exc:
             print("Error calling service: " + str(exc))
