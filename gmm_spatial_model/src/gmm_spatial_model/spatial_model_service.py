@@ -91,6 +91,8 @@ class SpatialModelServer(object):
         super(SpatialModelServer, self).__init__()
 
         self.model_cloud = rospy.Publisher("/spatial_model", PointCloud2, queue_size=1, latch=True)
+        self.best_pose = rospy.Publisher("/spatial_model_best_pose", PoseStamped, queue_size=1, latch=True)
+
         self.geospatial_store = GeoSpatialStoreProxy('geospatial_store', 'soma')
         self.soma_map = soma_map
         self.soma_config = soma_config
@@ -109,12 +111,33 @@ class SpatialModelServer(object):
         query = {'id': id, 'map': self.soma_map, 'config': self.soma_config}
         return self.soma_proxy.query(SOMAObject._type, message_query=query, single=True)[0]
 
+    def get_best_pose(self, bounds, model, samples = 100):
+        """ 
+        Randomly samples poses within the bounds and returns the highest scoring sample according to the model. 
+        """
+   
+        # subscribe to the service for generating nav goals
+        rospy.loginfo('waiting for nav_goals')
+        rospy.wait_for_service('nav_goals')
+        rospy.loginfo('done')
+        nav_goals = rospy.ServiceProxy('nav_goals', NavGoals)
+
+        inflation_radius = 0.5
+
+        # generate legal poses in the bounds provided
+        pose_array = nav_goals(samples, inflation_radius, bounds).goals.poses
+
+        # score them with the model
+        points = np.array([[pose.position.x, pose.position.y] for pose in pose_array])
+        scores = model.score_samples(points)
+        idx_of_max = scores.argmax()
+        return pose_array[idx_of_max]
+
+
     def get_pose_ros_srv(self, req):
         """
         Generates a pose that sastisfies the given spatial predicate
         """
-
-
 
         # assume just near for now
         name = req.predicate.name
@@ -133,19 +156,6 @@ class SpatialModelServer(object):
         # just choose the first ROI
         roi = rois[0]
 
-
-        # subscribe to the service for generating nav goals
-        rospy.loginfo('waiting for nav_goals')
-        rospy.wait_for_service('nav_goals')
-        rospy.loginfo('done')
-        nav_goals = rospy.ServiceProxy('nav_goals', NavGoals)
-        
-        points = 100
-        inflation_radius = 0.5
-        bounds = self.soma_roi_query.get_polygon(roi)
-
-        resp = nav_goals(points, inflation_radius, bounds)
-
         # create the model centred at the object given
         soma_obj = self.get_soma_object(landmark)
 
@@ -157,7 +167,18 @@ class SpatialModelServer(object):
             pcloud = model_to_pc2(model, -2, -2, 0.02, 4, 4)
             self.model_cloud.publish(pcloud)        
 
+        bounds = self.soma_roi_query.get_polygon(roi)
+        
+        pose = self.get_best_pose(bounds, model)
 
-        return PoseStamped()             
+        # stamp it so that we know the frame
+        stamped_pose = PoseStamped(pose = pose)
+        stamped_pose.header.stamp = rospy.get_rostime()
+        stamped_pose.header.frame_id = 'map'
+
+        if rospy.get_param('~visualise_model', True):
+            self.best_pose.publish(stamped_pose)
+
+        return stamped_pose
     get_pose_ros_srv.type=sm_srv.GetPoseForPredicate
 
