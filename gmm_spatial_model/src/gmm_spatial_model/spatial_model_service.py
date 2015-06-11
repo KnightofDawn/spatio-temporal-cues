@@ -1,6 +1,6 @@
 import rospy
 import gmm_spatial_model.srv as sm_srv
-from geometry_msgs.msg import PoseStamped, Pose
+from geometry_msgs.msg import PoseStamped, Pose, Quaternion
 from scipy.stats import multivariate_normal
 import numpy as np
 import sensor_msgs.point_cloud2 as pc2
@@ -12,6 +12,17 @@ from soma_roi_manager.soma_roi import SOMAROIQuery
 from soma_msgs.msg import SOMAObject
 from nav_goals_generator.srv import NavGoals
 from mongodb_store.message_store import MessageStoreProxy
+from math import atan2, pi
+from tf.transformations import quaternion_from_euler
+
+def angle_to_point(landmark, target):
+    """ Returns the angle from landmark to target as a quarternion """
+    dx = target.x - landmark.x
+    dy = target.y - landmark.y
+    rads = atan2(dy,dx)
+    rads %= 2*pi    
+    q = quaternion_from_euler(0, 0, rads)
+    return Quaternion(*q)
 
 def map_range(start, end, step):
     while start <= end:
@@ -171,10 +182,15 @@ class SpatialModelServer(object):
         
         pose = self.get_best_pose(bounds, model)
 
+        # rotate to point
+        pose.orientation = angle_to_point(pose.position, soma_obj.pose.position)
+
         # stamp it so that we know the frame
         stamped_pose = PoseStamped(pose = pose)
         stamped_pose.header.stamp = rospy.get_rostime()
         stamped_pose.header.frame_id = 'map'
+
+
 
         if rospy.get_param('~visualise_model', True):
             self.best_pose.publish(stamped_pose)
