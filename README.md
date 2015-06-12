@@ -17,6 +17,10 @@ Install dependencies with something like this:
 
 `rosdep install --from-paths spatio-temporal-cues  --ignore-src`
 
+Update scipy to version > 0.14 by running:
+
+`sudo pip install -U scipy`
+
 
 ## Spatial Model
 
