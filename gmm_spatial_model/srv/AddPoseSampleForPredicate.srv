@@ -2,4 +2,4 @@ SpatialPredicate predicate
 geometry_msgs/PoseStamped pose
 bool good
 ---
-
+bool success

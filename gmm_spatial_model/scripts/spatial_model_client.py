@@ -24,6 +24,6 @@ if __name__ == '__main__':
             pred = sys.argv[1]
             args = sys.argv[2:]
             rospy.loginfo('getting pose for: %s(%s)' % (pred, args))                        
-            get_pose(SpatialPredicate(pred, args))
+            print get_pose(SpatialPredicate(pred, args))
         except rospy.ServiceException as exc:
             print("Error calling service: " + str(exc))

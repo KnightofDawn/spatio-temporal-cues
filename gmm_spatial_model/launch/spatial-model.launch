@@ -6,7 +6,7 @@
 	<node pkg="soma_manager" type="soma.py" name="soma_manager" args="$(arg soma_map) $(arg soma_config)" output="screen"/>
 	<node pkg="soma_roi_manager" type="soma_roi.py" name="soma_roi_manager" args="$(arg soma_map) $(arg soma_config)" output="screen"/>
 
-	<!-- Nav goals -->
+    <!-- Nav goals -->
     <include file="$(find nav_goals_generator)/launch/nav_goals_generator.launch" >
         <arg name="map"  value="/move_base/global_costmap/costmap"/>
         <arg name="is_costmap"  value="true"/>

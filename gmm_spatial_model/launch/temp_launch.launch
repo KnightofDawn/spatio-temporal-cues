@@ -1,0 +1,10 @@
+<launch>    
+
+
+    <!-- Nav goals -->
+    <include file="$(find nav_goals_generator)/launch/nav_goals_generator.launch" >
+        <arg name="map"  value="/move_base/global_costmap/costmap"/>
+        <arg name="is_costmap"  value="true"/>
+    </include>
+
+</launch>

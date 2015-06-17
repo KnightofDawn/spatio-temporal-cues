@@ -6,6 +6,7 @@ project(simple_pnp_action_server)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
   actionlib
+  gmm_spatial_model
   move_base
   pnp_ros
   roscpp

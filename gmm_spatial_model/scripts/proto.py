@@ -113,12 +113,13 @@ if __name__ == '__main__':
 
 
 
-    gmm = mixture.GMM(n_components=2, covariance_type='spherical')
-    gmm.weights_ = np.array([1,1])
-    gmm.means_ = np.array([[1,1],[2,2]])
-    gmm.covars_ = np.array([[0.2,0.2],[0.1,0.1]])
+    gmm = mixture.GMM(n_components=3, covariance_type='spherical')
+    gmm.weights_ = np.array([1,1,3])
+    gmm.means_ = np.array([[1,1],[2,2], [3,3]])
+    gmm.covars_ = np.array([[0.2,0.2],[0.1,0.1],[0.1,0.1]])
 
- 
+    print(gmm.n_components)
+
     pcloud = gmm_to_pc2(gmm, 0, 0, 0.02, 4, 4)
   
     while not rospy.is_shutdown():
