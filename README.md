@@ -33,6 +33,10 @@ roslaunch mongodb_store mongodb_store.launch db_path:=$DB_PATH
 roslaunch strands_morse sapienza_all.launch
 # launch soma and the spatial models
 roslaunch gmm_spatial_model spatial-model.launch
+# launch the pnp_action_server
+roslaunch simple_pnp_action_server robot_plan.launch 
+# run the robot interface, only input "deliver book nick"
+roslaunch simple_speech_interface prolog_interface.launch
 ```
 
 Visualise with:
