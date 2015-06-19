@@ -211,6 +211,21 @@ class NearModel(object):
         return "NearModel:\n\tMultivariate Normals centered at (%s,%s)\n"%(self.pose[0], self.pose[1])
 
 
+    def sample(self, size=1):
+        """
+            Samples points from the model. 
+            Smaples n * 100 points from the positive model, scores them on the negative model, then returns the best n
+            This is a bit hacky but ok for testing.
+        """
+        # sample points from the centre
+        centre_samples = self.centre.rvs(size=(100 * size))
+        # score them using the repulsive score
+        repulse_scores = self.repulse.pdf(centre_samples)     
+        # get the indexes of the sorted list, lowest to highest
+        indexes = np.argsort(repulse_scores)
+        # and return the first n
+        return centre_samples[indexes[:size]]
+
 
 class SpatialModelServer(object):
 
