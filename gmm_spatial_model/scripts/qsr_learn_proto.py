@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 import matplotlib as mpl
 from scipy import linalg
 from sklearn import mixture
+from matplotlib.colors import LogNorm
 
 from geometry_msgs.msg import Pose, Point, Quaternion 
 
@@ -173,15 +174,13 @@ def visualise_relations(target, landmarks, bad_sample_poses, good_sample_poses, 
         # plot classifier relation metrics, e.g. distances or anges
         ax1 = plt.subplot(2, len(classifier_results), plot_n) 
         classifier_metrics = classifier_result[2]
-
-
+        classifier = classifier_result[3]
+        print classifier_metrics[0]
         # if this is a 1d data set, use a histogram
-        if len(classifier_results[0]) == 1:
+        if len(classifier_metrics[0]) == 1:
             n, bins, patches = ax1.hist(classifier_metrics, 20, normed=1, facecolor='green', alpha=0.5)
 
-            ax2 = ax1.twinx()
-            classifier = classifier_result[3]
-      
+            ax2 = ax1.twinx()              
 
             x_lim = plt.xticks()
         
@@ -193,8 +192,38 @@ def visualise_relations(target, landmarks, bad_sample_poses, good_sample_poses, 
             ax2.set_title('rel %s %s: %s' % (classifier_result[0], classifier_result[1].type, classifier_result[4]))
         else:
             ax1.axis((-1.2,1.2,-1.2,1.2))
-            ax1.scatter(classifier_metrics[:,0], classifier_metrics[:,1], c='r', s = 40)
+            ax1.scatter(classifier_metrics[:,0], classifier_metrics[:,1], c='b', s = 40)
 
+            # ax2 = ax1.twinx()              
+
+            # display predicted scores by the model as a contour plot
+            x = np.linspace(-1.2, 1.2)
+            y = np.linspace(-1.2, 1.2)
+            X, Y = np.meshgrid(x, y)
+            XX = np.array([X.ravel(), Y.ravel()]).T
+            Z = -classifier.score_samples(XX)[0]
+            Z = Z.reshape(X.shape)
+
+            CS = ax1.contour(X, Y, Z, norm=LogNorm(vmin=1.0, vmax=1000.0),
+                 levels=np.logspace(0, 3, 10))
+            # CB = ax1.colorbar(CS, shrink=0.8, extend='both')
+
+            # for mean, covar in zip(classifier.means_, classifier._get_covars()):
+            #     print mean
+            #     v, w = linalg.eigh(covar)
+            #     u = w[0] / linalg.norm(w[0])
+
+            #     print v[0], v[1]
+
+            #     # Plot an ellipse to show the Gaussian component
+            #     angle = np.arctan(u[1] / u[0])
+            #     angle = 180 * angle / np.pi  # convert to degrees
+            #     ell = mpl.patches.Ellipse(mean, v[0], v[1], 180 + angle, color='black')
+            #     ell.set_clip_box(ax1.bbox)
+            #     ell.set_alpha(0.5)
+            #     ax1.add_artist(ell)
+
+            ax1.set_title('rel %s %s: %6.3f' % (classifier_result[0], classifier_result[1].type, classifier_result[4]))
 
     plt.show()
 
@@ -217,8 +246,8 @@ if __name__ == '__main__':
     bad_sample_poses = [mkpose(-2, 0.3), mkpose(-0.2, -0.5), mkpose(-2, 0.2)]
     good_sample_poses =  [mkpose(1.8, 1), mkpose(1.9, 2.1), mkpose(1.4, 0.5)]
 
-    # results =  build_relational_models(bad_sample_poses, good_sample_poses, [table, cabinet], {'near': distance})
-    results =  build_relational_models(bad_sample_poses, good_sample_poses, [table, cabinet], {'relative_angle': unit_circle_position})
+
+    results =  build_relational_models(bad_sample_poses, good_sample_poses, [table, cabinet], {'near': distance,'relative_angle': unit_circle_position})
     visualise_relations(chair, [table, cabinet], bad_sample_poses, good_sample_poses, results)
 
 

@@ -20,14 +20,21 @@ from sklearn import mixture
 def predicate_to_key(predicate):
     return predicate.name + "_" + str(predicate.arguments).replace(",","_")[1:-1]
 
+
 def angle_to_point(landmark, target):
-    """ Returns the angle from landmark to target as a quarternion """
+    """ Returns the angle from landmark to target in radians """
     dx = target.x - landmark.x
     dy = target.y - landmark.y
     rads = atan2(dy,dx)
     rads %= 2*pi    
-    q = quaternion_from_euler(0, 0, rads)
-    return Quaternion(*q)
+    return rads
+
+
+
+def quarternion_to_point(landmark, target):
+    """ Returns the angle from landmark to target as a quarternion """
+    rads = angle_to_point(landmark, target)
+    return Quaternion(*quaternion_from_euler(0, 0, rads))
 
 def map_range(start, end, step):
     while start <= end:
@@ -345,7 +352,7 @@ class SpatialModelServer(object):
         pose = self.get_best_pose(bounds, model)
 
         # rotate to point
-        pose.orientation = angle_to_point(pose.position, soma_obj.pose.position)
+        pose.orientation = quarternion_to_point(pose.position, soma_obj.pose.position)
 
         # stamp it so that we know the frame
         stamped_pose = PoseStamped(pose = pose)
