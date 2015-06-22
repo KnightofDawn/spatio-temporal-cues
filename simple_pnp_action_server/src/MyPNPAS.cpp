@@ -68,7 +68,10 @@ public:
       cout << "executing querydatabase" << endl;
       std_msgs::String msg;
       std::stringstream ss;
-      ss << "target_1";
+      if (params == "nick")
+        ss << "target_2";
+      else
+        ss << "target_7";
       msg.data = ss.str();
       event_pub.publish(msg);
       cout << "[MyPNPActionServer] Published: " << msg << endl;

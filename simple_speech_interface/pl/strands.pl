@@ -15,3 +15,4 @@ destination(Dest)  --> [Dest], {destination(Dest)}.
 action(deliver).
 object(book).
 destination(nick).
+destination(gu).
