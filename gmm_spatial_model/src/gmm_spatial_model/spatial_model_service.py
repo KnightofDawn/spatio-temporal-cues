@@ -20,14 +20,21 @@ from sklearn import mixture
 def predicate_to_key(predicate):
     return predicate.name + "_" + str(predicate.arguments).replace(",","_")[1:-1]
 
+
 def angle_to_point(landmark, target):
-    """ Returns the angle from landmark to target as a quarternion """
+    """ Returns the angle from landmark to target in radians """
     dx = target.x - landmark.x
     dy = target.y - landmark.y
     rads = atan2(dy,dx)
     rads %= 2*pi    
-    q = quaternion_from_euler(0, 0, rads)
-    return Quaternion(*q)
+    return rads
+
+
+
+def quarternion_to_point(landmark, target):
+    """ Returns the angle from landmark to target as a quarternion """
+    rads = angle_to_point(landmark, target)
+    return Quaternion(*quaternion_from_euler(0, 0, rads))
 
 def map_range(start, end, step):
     while start <= end:
@@ -211,6 +218,21 @@ class NearModel(object):
         return "NearModel:\n\tMultivariate Normals centered at (%s,%s)\n"%(self.pose[0], self.pose[1])
 
 
+    def sample(self, size=1):
+        """
+            Samples points from the model. 
+            Smaples n * 100 points from the positive model, scores them on the negative model, then returns the best n
+            This is a bit hacky but ok for testing.
+        """
+        # sample points from the centre
+        centre_samples = self.centre.rvs(size=(100 * size))
+        # score them using the repulsive score
+        repulse_scores = self.repulse.pdf(centre_samples)     
+        # get the indexes of the sorted list, lowest to highest
+        indexes = np.argsort(repulse_scores)
+        # and return the first n
+        return centre_samples[indexes[:size]]
+
 
 class SpatialModelServer(object):
 
@@ -330,7 +352,7 @@ class SpatialModelServer(object):
         pose = self.get_best_pose(bounds, model)
 
         # rotate to point
-        pose.orientation = angle_to_point(pose.position, soma_obj.pose.position)
+        pose.orientation = quarternion_to_point(pose.position, soma_obj.pose.position)
 
         # stamp it so that we know the frame
         stamped_pose = PoseStamped(pose = pose)

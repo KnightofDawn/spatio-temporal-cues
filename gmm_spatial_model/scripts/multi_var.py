@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import matplotlib.pyplot as plt
 from scipy.stats import multivariate_normal
 import numpy as np
@@ -37,3 +39,4 @@ print rv.pdf([0,0])
 # ax2 = fig2.add_subplot(111)
 # ax2.contourf(x, y, rv.pdf(pos))
 plt.show()
+
