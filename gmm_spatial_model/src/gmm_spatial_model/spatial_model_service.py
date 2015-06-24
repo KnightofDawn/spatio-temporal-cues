@@ -19,8 +19,8 @@ from tf.transformations import quaternion_from_euler
 from sklearn import mixture
 import models
 import transfer
+import spatial_relation_graph
 import support_functions
-
 
 
 N_FEEDBACK_THRESHOLD = -1
@@ -170,7 +170,6 @@ class SpatialModelServer(object):
         # if I know the model I use the previous one otherwise I instantiate a new model
         # if I am visiting a new room and the previous one has at least n points I transfer, otherwise I learn my usual model
         # transfer: with old model generate a bunch of good and bad poses
-
         similar_model_name = self.get_similar_room_model(name,landmark)
 
         if (support_functions.predicate_to_key(req.predicate) in self.aggregate_models_dictionary):
@@ -193,8 +192,8 @@ class SpatialModelServer(object):
             good_sample_poses, bad_sample_poses = self.get_sample_poses(soma_obj.pose, similar_model_name)
 
 
-            bad_sample_poses = [support_functions.mkpose(-2, 0.3), support_functions.mkpose(-0.2, -0.5), support_functions.mkpose(-2, 0.2)]
-            good_sample_poses =  [support_functions.mkpose(1.8, 1), support_functions.mkpose(1.9, 2.1), support_functions.mkpose(1.4, 0.5)]
+            bad_sample_poses = [support_functions.mkpose(-1, 0.15), support_functions.mkpose(-0.1, -0.25), support_functions.mkpose(-1, 0.1)]
+            good_sample_poses =  [support_functions.mkpose(0.9, 0.5), support_functions.mkpose(0.95, 1.05), support_functions.mkpose(0.7, 0.25)]
 
             default_model      = transfer.build_relational_models(bad_sample_poses, good_sample_poses, [cabinet,table], [cabinet1, table1], {'near': support_functions.distance,'relative_angle': support_functions.unit_circle_position}, self)
             model              = models.AggregateModel(default_model)

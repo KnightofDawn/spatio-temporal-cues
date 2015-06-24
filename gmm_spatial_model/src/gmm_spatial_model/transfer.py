@@ -16,23 +16,44 @@ from soma_msgs.msg import SOMAObject
 from scipy.spatial.distance import euclidean
 from sklearn.metrics import log_loss
 import models
+import spatial_relation_graph
 import support_functions
 
+# threshold used to eliminate bad resulting models
+CLASSIFIER_THRESHOLD = 0.2
 
 def build_relational_models(bad_sample_poses, good_sample_poses, landmarks, transferred_landmarks, relation_fns, server):
-    # threshold used to eliminate bad resulting models
-    CLASSIFIER_THRESHOLD = 0.2
-    
     results = []
     results_for_visualization = []
     model   = None
 
+    # getting the area roi of the first room
+    rois = server.geospatial_store.rois_containing_obj(landmarks[0].id, server.soma_map, server.soma_config)
+    if len(rois) == 0:
+        raise rospy.ROSException('The object with id %s is not in a SoMa ROI' % landmark)
+    roi1        = rois[0]
+    area_roi1   = server.geospatial_store.geom_of_roi(roi1, server.soma_map, server.soma_config)
+
+    # getting the area roi of the second room
+    rois = server.geospatial_store.rois_containing_obj(transferred_landmarks[0].id, server.soma_map, server.soma_config)
+    if len(rois) == 0:
+        raise rospy.ROSException('The object with id %s is not in a SoMa ROI' % landmark)
+    roi2        = rois[0] 
+    area_roi2   = server.geospatial_store.geom_of_roi(roi2, server.soma_map, server.soma_config)
+
+    # building the two spatial relation graphs for the two rooms
+    srg1 = spatial_relation_graph.create_spatial_relation_graph_from_roi(server, area_roi1)
+    srg2 = spatial_relation_graph.create_spatial_relation_graph_from_roi(server, area_roi2)
+
+    print srg1
+    print srg2
+
+    # building the transfer model for each object and for each relation
     for i in xrange(len(landmarks)):
         for relation_name, relation_fn in relation_fns.iteritems():
             bad_relation_metrics = support_functions.to_spatial_relation(landmarks[i].pose, bad_sample_poses, relation_fn)
             good_relation_metrics = support_functions.to_spatial_relation(landmarks[i].pose, good_sample_poses, relation_fn)
             relation_metrics = np.concatenate((bad_relation_metrics, good_relation_metrics))
-
 
             # create the mixture model
             classifier = mixture.GMM(n_components=2, covariance_type='full', init_params='wc')
@@ -55,22 +76,28 @@ def build_relational_models(bad_sample_poses, good_sample_poses, landmarks, tran
                 continue
 
             old_model   = models.TransferModel(landmarks[i], classifier, classifier_loss, relation_name)
-            model       = models.TransferModel(transferred_landmarks[i], classifier, classifier_loss, relation_name)
+
+            map_width = 10
+            pcloud = support_functions.model_to_pc2(old_model, landmarks[i].pose.position.x - map_width / 2, landmarks[i].pose.position.y - map_width / 2, 0.02, map_width, map_width)
+            server.model_cloud.publish(pcloud)
+
+            raw_input("Showing old model...")
+
+            # I search for which function I need to call in order to change my classifier (for now I just have a transpose and identity function)
+            classifier_modify_function  = spatial_relation_graph.get_spatial_relation_graph_function(relation_name, srg1, srg2, landmarks[i], transferred_landmarks[i])
+            # I apply this function to the classifier
+            classifier_modify_function(classifier)
+
+            # I produce the transfer model using the classifier
+            model = models.TransferModel(transferred_landmarks[i], classifier, classifier_loss, relation_name)
+
+            map_width = 10
+            pcloud = support_functions.model_to_pc2(model, transferred_landmarks[i].pose.position.x - map_width / 2, transferred_landmarks[i].pose.position.y - map_width / 2, 0.02, map_width, map_width)
+            server.model_cloud.publish(pcloud)
+
+            raw_input("Showing new model...")
 
             results.append(model)
-
-            #map_width = 10
-            #pcloud = support_functions.model_to_pc2(old_model, landmarks[i].pose.position.x - map_width / 2, landmarks[i].pose.position.y - map_width / 2, 0.04, map_width, map_width)
-            #server.model_cloud.publish(pcloud)
-
-            #raw_input("Showing old model...")
-
-            #map_width = 10
-            #pcloud = support_functions.model_to_pc2(model, transferred_landmarks[i].pose.position.x - map_width / 2, transferred_landmarks[i].pose.position.y - map_width / 2, 0.04, map_width, map_width)
-            #server.model_cloud.publish(pcloud)
-
-            #raw_input("Showing new model...")
-
 
     return results
 
