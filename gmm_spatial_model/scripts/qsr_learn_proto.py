@@ -15,7 +15,7 @@ from geometry_msgs.msg import Pose, Point, Quaternion
 from tf.transformations import euler_from_quaternion, quaternion_from_euler
 import numpy as np
 from math import cos, sin, radians
-from gmm_spatial_model.spatial_model_service import angle_to_point
+from gmm_spatial_model.support_functions import angle_to_point
 
 from mongodb_store.message_store import MessageStoreProxy
 from soma_msgs.msg import SOMAObject

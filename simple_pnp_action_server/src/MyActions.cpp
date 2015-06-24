@@ -115,7 +115,7 @@ void gotopose(string params, bool *run) {
   float GY=atof(params.substr(i+1,j).c_str());
   float GTh=atof(params.substr(j+1).c_str());
 
-  start_gotopose(GX, GY, GTh, run);
+  //start_gotopose(GX, GY, GTh, run);
 
   if (*run)
     cout << "### Finished Gotopose " << endl;

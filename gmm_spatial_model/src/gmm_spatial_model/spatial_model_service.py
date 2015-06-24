@@ -23,64 +23,7 @@ import support_functions
 
 
 
-N_FEEDBACK_THRESHOLD = 1
-
-
-
-
-def model_to_pc2(model, x_start, y_start, resolution, width, height):
-    """
-    Creates a PointCloud2 by sampling a regular grid of points from the given model.
-    """
-    pc = PointCloud2()
-    pc.header.stamp = rospy.get_rostime()
-    pc.header.frame_id = 'map'
- 
-    xy_points = []
-    for x in support_functions.map_range(x_start, x_start + width, resolution):
-        for y in support_functions.map_range(y_start, y_start + height, resolution):
-            xy_points.append([x, y])
-    
-    probs = model.score_samples(xy_points)
-    
-    # and normalise to range to make the visualisation prettier
-    normaliser = Normalize()
-    normaliser.autoscale(probs)
-    probs = normaliser(probs)
-
-    colour_map = plt.get_cmap('jet')    
-    colours = colour_map(probs, bytes=True)
-
-    cloud = []
-    for i in range(len(probs)):
-        cloud.append([xy_points[i][0], xy_points[i][1], 2*probs[i], pack_rgb(colours[i][0], colours[i][1], colours[i][2])])
- 
-    return create_cloud_xyzrgb(pc.header, cloud)
-  
-
-
-def create_cloud_xyzrgb(header, points):
-    """
-    Create a L{sensor_msgs.msg.PointCloud2} message with 3 float32 fields (x, y, z).
-
-    @param header: The point cloud header.
-    @type  header: L{std_msgs.msg.Header}
-    @param points: The point cloud points.
-    @type  points: iterable
-    @return: The point cloud.
-    @rtype:  L{sensor_msgs.msg.PointCloud2}
-    """
-    fields = [PointField('x', 0, PointField.FLOAT32, 1),
-              PointField('y', 4, PointField.FLOAT32, 1),
-              PointField('z', 8, PointField.FLOAT32, 1),
-              PointField('rgb', 12, PointField.UINT32, 1)]
-    return pc2.create_cloud(header, fields, points)
-
-
-
-def pack_rgb(r,g,b):
-    return r << 16 | g << 8 | b
-
+N_FEEDBACK_THRESHOLD = -1
 
 
 class SpatialModelServer(object):
@@ -181,12 +124,12 @@ class SpatialModelServer(object):
         if not (key in self.aggregate_models_dictionary):
             raise rospy.ROSException('Could not find aggregate model for key %s' % key)
 
-        self.aggregate_models_dictionary[key].add_preference_point(soma_obj.pose, point_x, point_y, good)   
+        self.aggregate_models_dictionary[key].add_preference_point(point_x, point_y, good)   
         print "updated aggregate model:\n%s"%self.aggregate_models_dictionary[key]     
 
         if rospy.get_param('~visualise_model', True):
-            map_width = 4
-            model_pcloud = model_to_pc2(self.aggregate_models_dictionary[key], soma_obj.pose.position.x - map_width / 2, soma_obj.pose.position.y - map_width / 2, 0.02, map_width, map_width)
+            map_width = 5
+            model_pcloud = support_functions.model_to_pc2(self.aggregate_models_dictionary[key], soma_obj.pose.position.x - map_width / 2, soma_obj.pose.position.y - map_width / 2, 0.02, map_width, map_width)
             self.model_cloud.publish(model_pcloud)    
              
         return True
@@ -239,14 +182,25 @@ class SpatialModelServer(object):
             # I can retrieve a similar model for the new room
             # FIXME change the hardcoded values
             print "Transferring model %s to model %s..."%(similar_model_name, support_functions.predicate_to_key(req.predicate))
-            table               = self.get_soma_object('6')   
-            cabinet             = self.get_soma_object('8')   
-            chair               = self.get_soma_object('7')
+            table               = self.get_soma_object('1')   
+            chair               = self.get_soma_object('2')
+            cabinet             = self.get_soma_object('3')  
+            table1              = self.get_soma_object('6')   
+            chair1              = self.get_soma_object('7')
+            cabinet1            = self.get_soma_object('8') 
+            # TODO: objects_list        = get_objects_list() 
 
             good_sample_poses, bad_sample_poses = self.get_sample_poses(soma_obj.pose, similar_model_name)
 
-            default_model       = transfer.build_relational_models(bad_sample_poses, good_sample_poses, [cabinet,table], {'near': support_functions.distance,'relative_angle': support_functions.unit_circle_position})
-            model               = models.AggregateModel(default_model)
+
+            bad_sample_poses = [support_functions.mkpose(-2, 0.3), support_functions.mkpose(-0.2, -0.5), support_functions.mkpose(-2, 0.2)]
+            good_sample_poses =  [support_functions.mkpose(1.8, 1), support_functions.mkpose(1.9, 2.1), support_functions.mkpose(1.4, 0.5)]
+
+            default_model      = transfer.build_relational_models(bad_sample_poses, good_sample_poses, [cabinet,table], [cabinet1, table1], {'near': support_functions.distance,'relative_angle': support_functions.unit_circle_position}, self)
+            model              = models.AggregateModel(default_model)
+
+            self.aggregate_models_dictionary[support_functions.predicate_to_key(req.predicate)] = model
+            
             print "Generated new transferred model:\n%s"%default_model
 
         else:
@@ -255,10 +209,10 @@ class SpatialModelServer(object):
             model = models.AggregateModel(models.NearModel(soma_obj.pose, 0.5))
             self.aggregate_models_dictionary[support_functions.predicate_to_key(req.predicate)] = model
 
-        if rospy.get_param('~visualise_model', True):
-            map_width = 10
-            pcloud = model_to_pc2(model, soma_obj.pose.position.x - map_width / 2, soma_obj.pose.position.y - map_width / 2, 0.02, map_width, map_width)
-            self.model_cloud.publish(pcloud)
+        map_width = 10
+        pcloud = support_functions.model_to_pc2(model, soma_obj.pose.position.x - map_width / 2, soma_obj.pose.position.y - map_width / 2, 0.02, map_width, map_width)
+        self.model_cloud.publish(pcloud)
+        #raw_input("Showing model for target position...")
 
         bounds = self.soma_roi_query.get_polygon(roi)
         

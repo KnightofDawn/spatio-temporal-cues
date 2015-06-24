@@ -7,6 +7,7 @@ import gmm_spatial_model.srv as sm_srv
 from scipy.spatial.distance import euclidean
 import support_functions
 
+MULTIPLYING_FACTOR = 0.01
 
 class AggregateModel(object):
     def __init__(self, model):
@@ -25,69 +26,53 @@ class AggregateModel(object):
 
         return weighted_scores
 
-    def add_preference_point(self, target_pose, point_x, point_y, good_bool):
-        self.models_list[0].add_preference_point(target_pose, point_x, point_y, good_bool)
+    def add_preference_point(self, point_x, point_y, good_bool):
+        self.models_list[0].add_preference_point(point_x, point_y, good_bool)
 
     def __str__(self):
         string = ""
-        for model in self.models_list:
+        for model in self.models_list:  
             string = string + str(model) + "\n"
         return string
 
 
-class RelAngleModel(object):
-    def __init__(self, landmark_type, gmm,  classifier_loss):
-        super(RelAngleModel, self).__init__()
+
+class TransferModel(object):
+    def __init__(self, landmark, gmm, classifier_loss, relation_name):
+        super(TransferModel, self).__init__()
         self.gmm                = gmm
-        self.landmark_type      = landmark_type
+        self.landmark           = landmark
         self.classifier_loss    = classifier_loss
-        
+        self.positive           = multivariate_normal(gmm.means_[1], gmm.covars_[1])#, allow_singular=True)
+        self.negative           = multivariate_normal(gmm.means_[0], gmm.covars_[0])#, allow_singular=True)
+
+        if relation_name == 'near':
+            self.scoring_function   = support_functions.distance_pose_xy
+        elif relation_name == 'relative_angle':
+            self.scoring_function   = support_functions.unit_circle_position_pose_xy
+        else:
+            raise rospy.ROSException("Unknown relation_name %s"%relation_name)
 
     def score_samples(self, points):
-        logprobs, responsibilities  = self.gmm.score_samples(points)
-        positive_scores             = responsibilities[:,1]
-        negative_scores             = responsibilities[:,0]
+        #converted_points = self.scoring_function(points, self.landmark.pose)
+        converted_points = np.array([self.scoring_function(self.landmark.pose, x) for x in points])
 
-        weighted_scores = positive_scores - (0.5 * negative_scores)
-        below_zero_indices = weighted_scores < 0  # Where values are below 0
-        weighted_scores[below_zero_indices] = 0
+        positive_scores     = self.positive.pdf(converted_points)
+        negative_scores     = self.negative.pdf(converted_points)
 
-        
+        weighted_scores     = positive_scores - (0.5 * negative_scores)
+        below_zero_indices  = weighted_scores < 0  # Where values are below 0
+        weighted_scores[below_zero_indices] = MULTIPLYING_FACTOR
         return weighted_scores
 
     def __str__(self):
-        gmm_string = "GMM(gmm_components=%s, gmm_weights=%s, gmm_means=%s, gmm_covars=%s)"%(self.gmm.n_components, self.gmm.weights_, str(self.gmm.means_).replace("\n",""), str(self.gmm.covars_).replace("\n",""))
-        
-        return "%s Relative Angle Model:\n\tGMM: %s\n"%(self.landmark_type, gmm_string)
+        center_normal_string   = "multivariate_normal(pose_x=%s, pose_y=%s)"%(self.positive, self.positive)
+        repulse_normal_string  = "multivariate_normal(pose_x=%s, pose_y=%s)"%(self.negative, self.negative)
+        return "TransferModel:\n\tPositive Multivariate: %s\n\tNegative Multivariate: %s"%(center_normal_string, repulse_normal_string)
 
 
 
-class RelDistanceModel(object):
-    def __init__(self, landmark_type, landmark_pose, gmm,  classifier_loss):
-        super(RelDistanceModel, self).__init__()
-        self.gmm                = gmm
-        self.landmark_type      = landmark_type
-        self.landmark_pose      = landmark_pose
-        self.classifier_loss    = classifier_loss
-        
 
-    def score_samples(self, points):
-        converted_points = np.array([euclidean(support_functions.pose_to_xy(self.landmark_pose), point) for point in points])
-        logprobs, responsibilities  = self.gmm.score_samples(converted_points)
-
-        positive_scores             = responsibilities[:,1]
-        negative_scores             = responsibilities[:,0]
-
-        weighted_scores = positive_scores - (0.5 * negative_scores)
-        below_zero_indices = weighted_scores < 0  # Where values are below 0
-        weighted_scores[below_zero_indices] = 0
-
-        return weighted_scores
-
-    def __str__(self):
-        gmm_string = "GMM(gmm_components=%s, gmm_weights=%s, gmm_means=%s, gmm_covars=%s)"%(self.gmm.n_components, self.gmm.weights_, str(self.gmm.means_).replace("\n",""), str(self.gmm.covars_).replace("\n",""))
-        
-        return "%s Relative Distance Model:\n\tGMM: %s\n"%(self.landmark_type, gmm_string)  
 
 class PreferenceModel(object):
     def __init__(self):
@@ -99,12 +84,10 @@ class PreferenceModel(object):
         self.good_pref_rel_points   = []
         self.bad_pref_rel_points    = []
 
-    def add_preference_point(self, target_pose, point_x, point_y, good_bool):
-
-        target_x, target_y = support_functions.pose_to_xy(target_pose)
+    def add_preference_point(self, point_x, point_y, good_bool):
 
         if (good_bool):
-            self.good_pref_rel_points.append([point_x - target_x, point_y - target_y])
+            self.good_pref_rel_points.append([point_x, point_y])
 
             # if this is the first gaussian we overwrite the dummy one
             if (self.positive_gmm == None):
@@ -123,7 +106,7 @@ class PreferenceModel(object):
             self.positive_gmm   = gmm
 
         else: 
-            self.bad_pref_rel_points.append([point_x - target_x, point_y - target_y])
+            self.bad_pref_rel_points.append([point_x, point_y])
 
             # if this is the first gaussian we overwrite the dummy one
             if (self.negative_gmm == None):
@@ -160,7 +143,7 @@ class PreferenceModel(object):
 
         weighted_scores = positive_scores - (0.5 * negative_scores)
         below_zero_indices = weighted_scores < 0  # Where values are below 0
-        weighted_scores[below_zero_indices] = 0
+        weighted_scores[below_zero_indices] = MULTIPLYING_FACTOR
 
         return weighted_scores
 
@@ -177,6 +160,10 @@ class PreferenceModel(object):
         return "PreferenceModel:\n\tPositive GMM: %s\n\tNegative GMM: %s\n"%(positive_gmm_string, negative_gmm_string)
 
 
+
+
+
+
 class NearModel(object):
     def __init__(self, pose, width):
         super(NearModel, self).__init__()        
@@ -190,7 +177,7 @@ class NearModel(object):
 
         weighted_scores = centre_scores - (0.5 * repulse_scores)
         below_zero_indices = weighted_scores < 0  # Where values are below 0
-        weighted_scores[below_zero_indices] = 0
+        weighted_scores[below_zero_indices] = MULTIPLYING_FACTOR
         return weighted_scores
 
     def __str__(self):

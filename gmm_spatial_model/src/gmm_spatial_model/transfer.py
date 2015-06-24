@@ -19,18 +19,18 @@ import models
 import support_functions
 
 
-def build_relational_models(bad_sample_poses, good_sample_poses, landmarks, relation_fns):
+def build_relational_models(bad_sample_poses, good_sample_poses, landmarks, transferred_landmarks, relation_fns, server):
     # threshold used to eliminate bad resulting models
-    CLASSIFIER_THRESHOLD = 0.5
+    CLASSIFIER_THRESHOLD = 0.2
     
     results = []
+    results_for_visualization = []
     model   = None
 
-    for landmark in landmarks:
+    for i in xrange(len(landmarks)):
         for relation_name, relation_fn in relation_fns.iteritems():
-
-            bad_relation_metrics = support_functions.to_spatial_relation(landmark.pose, bad_sample_poses, relation_fn)
-            good_relation_metrics = support_functions.to_spatial_relation(landmark.pose, good_sample_poses, relation_fn)
+            bad_relation_metrics = support_functions.to_spatial_relation(landmarks[i].pose, bad_sample_poses, relation_fn)
+            good_relation_metrics = support_functions.to_spatial_relation(landmarks[i].pose, good_sample_poses, relation_fn)
             relation_metrics = np.concatenate((bad_relation_metrics, good_relation_metrics))
 
 
@@ -47,27 +47,38 @@ def build_relational_models(bad_sample_poses, good_sample_poses, landmarks, rela
             # and see how good it is on the data
             classifier_loss = log_loss([0] * len(bad_relation_metrics) + [1] * len(good_relation_metrics), predictions)
 
-            print 'point %s %s: %s' % (relation_name, landmark.type, classifier_loss)
+            print 'point %s %s: %s' % (relation_name, landmarks[i].type, classifier_loss)
+            print 'classifier obtained for relation %s %s: components = %s, weights = %s, means = %s, covars = %s'%(landmarks[i].type, relation_name, classifier.n_components, classifier.weights_, classifier.means_, classifier.covars_)
             
             # discards bad models based on the classifier loss
             if classifier_loss >= CLASSIFIER_THRESHOLD:
                 continue
 
-            if relation_name == 'near':
-                model = models.RelDistanceModel(landmark.type, landmark.pose, classifier, classifier_loss)
-
-            elif relation_name == 'relative_angle':
-                model = models.RelAngleModel(landmark.type, classifier, classifier_loss)
+            old_model   = models.TransferModel(landmarks[i], classifier, classifier_loss, relation_name)
+            model       = models.TransferModel(transferred_landmarks[i], classifier, classifier_loss, relation_name)
 
             results.append(model)
+
+            #map_width = 10
+            #pcloud = support_functions.model_to_pc2(old_model, landmarks[i].pose.position.x - map_width / 2, landmarks[i].pose.position.y - map_width / 2, 0.04, map_width, map_width)
+            #server.model_cloud.publish(pcloud)
+
+            #raw_input("Showing old model...")
+
+            #map_width = 10
+            #pcloud = support_functions.model_to_pc2(model, transferred_landmarks[i].pose.position.x - map_width / 2, transferred_landmarks[i].pose.position.y - map_width / 2, 0.04, map_width, map_width)
+            #server.model_cloud.publish(pcloud)
+
+            #raw_input("Showing new model...")
+
 
     return results
 
 
 def visualise_relations(target, landmarks, bad_sample_poses, good_sample_poses, classifier_results):
     # to just x,y 
-    good_samples = pose_list_to_np(good_sample_poses)
-    bad_samples = pose_list_to_np(bad_sample_poses)
+    good_samples = support_functions.pose_list_to_np(good_sample_poses)
+    bad_samples = support_functions.pose_list_to_np(bad_sample_poses)
 
 
     plt.figure(1)
