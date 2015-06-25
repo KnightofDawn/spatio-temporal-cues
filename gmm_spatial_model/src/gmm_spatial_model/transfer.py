@@ -18,9 +18,11 @@ from sklearn.metrics import log_loss
 import models
 import spatial_relation_graph
 import support_functions
+import time
+
 
 # threshold used to eliminate bad resulting models
-CLASSIFIER_THRESHOLD = 0.2
+CLASSIFIER_THRESHOLD = 0.8
 
 def build_relational_models(bad_sample_poses, good_sample_poses, landmarks, transferred_landmarks, relation_fns, server):
     results = []
@@ -44,9 +46,6 @@ def build_relational_models(bad_sample_poses, good_sample_poses, landmarks, tran
     # building the two spatial relation graphs for the two rooms
     srg1 = spatial_relation_graph.create_spatial_relation_graph_from_roi(server, area_roi1)
     srg2 = spatial_relation_graph.create_spatial_relation_graph_from_roi(server, area_roi2)
-
-    print srg1
-    print srg2
 
     # building the transfer model for each object and for each relation
     for i in xrange(len(landmarks)):
@@ -78,10 +77,10 @@ def build_relational_models(bad_sample_poses, good_sample_poses, landmarks, tran
             old_model   = models.TransferModel(landmarks[i], classifier, classifier_loss, relation_name)
 
             map_width = 10
-            pcloud = support_functions.model_to_pc2(old_model, landmarks[i].pose.position.x - map_width / 2, landmarks[i].pose.position.y - map_width / 2, 0.02, map_width, map_width)
+            pcloud = support_functions.model_to_pc2(old_model, landmarks[i].pose.position.x - map_width / 2, landmarks[i].pose.position.y - map_width / 2, 0.04, map_width, map_width)
             server.model_cloud.publish(pcloud)
 
-            raw_input("Showing old model...")
+            raw_input("press enter...")
 
             # I search for which function I need to call in order to change my classifier (for now I just have a transpose and identity function)
             classifier_modify_function  = spatial_relation_graph.get_spatial_relation_graph_function(relation_name, srg1, srg2, landmarks[i], transferred_landmarks[i])
@@ -92,10 +91,10 @@ def build_relational_models(bad_sample_poses, good_sample_poses, landmarks, tran
             model = models.TransferModel(transferred_landmarks[i], classifier, classifier_loss, relation_name)
 
             map_width = 10
-            pcloud = support_functions.model_to_pc2(model, transferred_landmarks[i].pose.position.x - map_width / 2, transferred_landmarks[i].pose.position.y - map_width / 2, 0.02, map_width, map_width)
+            pcloud = support_functions.model_to_pc2(model, transferred_landmarks[i].pose.position.x - map_width / 2, transferred_landmarks[i].pose.position.y - map_width / 2, 0.04, map_width, map_width)
             server.model_cloud.publish(pcloud)
 
-            raw_input("Showing new model...")
+            raw_input("press enter...")
 
             results.append(model)
 

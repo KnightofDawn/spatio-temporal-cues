@@ -23,7 +23,7 @@ import spatial_relation_graph
 import support_functions
 
 
-N_FEEDBACK_THRESHOLD = -1
+N_FEEDBACK_THRESHOLD = 2
 
 
 class SpatialModelServer(object):
@@ -191,9 +191,8 @@ class SpatialModelServer(object):
 
             good_sample_poses, bad_sample_poses = self.get_sample_poses(soma_obj.pose, similar_model_name)
 
-
-            bad_sample_poses = [support_functions.mkpose(-1, 0.15), support_functions.mkpose(-0.1, -0.25), support_functions.mkpose(-1, 0.1)]
-            good_sample_poses =  [support_functions.mkpose(0.9, 0.5), support_functions.mkpose(0.95, 1.05), support_functions.mkpose(0.7, 0.25)]
+            #bad_sample_poses = [support_functions.mkpose(-1, 0.15), support_functions.mkpose(-0.1, -0.25), support_functions.mkpose(-1, 0.1)]
+            #good_sample_poses =  [support_functions.mkpose(0.9, 0.5), support_functions.mkpose(0.95, 1.05), support_functions.mkpose(0.7, 0.25)]
 
             default_model      = transfer.build_relational_models(bad_sample_poses, good_sample_poses, [cabinet,table], [cabinet1, table1], {'near': support_functions.distance,'relative_angle': support_functions.unit_circle_position}, self)
             model              = models.AggregateModel(default_model)
@@ -205,11 +204,11 @@ class SpatialModelServer(object):
         else:
             # I use the default near model
             print "Uknown model %s initializing a new one..."%support_functions.predicate_to_key(req.predicate)
-            model = models.AggregateModel(models.NearModel(soma_obj.pose, 0.5))
+            model = models.AggregateModel(models.NearModel(soma_obj.pose, 1.5))
             self.aggregate_models_dictionary[support_functions.predicate_to_key(req.predicate)] = model
 
         map_width = 10
-        pcloud = support_functions.model_to_pc2(model, soma_obj.pose.position.x - map_width / 2, soma_obj.pose.position.y - map_width / 2, 0.02, map_width, map_width)
+        pcloud = support_functions.model_to_pc2(model, soma_obj.pose.position.x - map_width / 2, soma_obj.pose.position.y - map_width / 2, 0.04, map_width, map_width)
         self.model_cloud.publish(pcloud)
         #raw_input("Showing model for target position...")
 
