@@ -49,7 +49,7 @@ class SpatialModelServer(object):
                 rospy.Service(prefix + "/" +attr[:-8], service.type, service)
 
 
-    def get_soma_object(self, id):
+    def get_target_object(self, id):
         query = {'id': id, 'map': self.soma_map, 'config': self.soma_config}
         return self.soma_proxy.query(SOMAObject._type, message_query=query, single=True)[0]
 
@@ -73,15 +73,55 @@ class SpatialModelServer(object):
         return (good_glob_poses, bad_glob_poses)
 
 
-    def get_similar_room_model(self, name, landmark):
+    def get_similar_room_model_name(self, name, target_id):
+        rois = self.geospatial_store.rois_containing_obj(target_id, self.soma_map, self.soma_config)
+
+        if len(rois) == 0:
+            raise rospy.ROSException('The object with id %s is not in a SoMa ROI' % target_id)
+
         for key in self.aggregate_models_dictionary:
-            #FIXME also check that the landmark encoded in the key is in a room similar to the one in which the input landmark is located
+            #FIXME also check that the target_id encoded in the key is in a room similar to the one in which the input target_id is located
             if key.startswith(name): 
                 n_feedback_points = len(self.aggregate_models_dictionary[key].models_list[0].good_pref_rel_points) + len(self.aggregate_models_dictionary[key].models_list[0].bad_pref_rel_points)
                 if n_feedback_points > N_FEEDBACK_THRESHOLD:
                     return key
         return None
 
+    def get_similar_object(self, target_obj, objects_in_similar_room):
+        print objects_in_similar_room
+        for obj in objects_in_similar_room:
+            print obj
+            if obj.type == target_obj.type:
+                return obj
+        raise rospy.ROSException('Could not find a similar object of type %s in similar room'%target_obj.type)
+
+
+    def get_objects_in_room(self, room_id):
+        area_roi = self.geospatial_store.geom_of_roi(room_id, self.soma_map, self.soma_config)
+        obj_list = self.geospatial_store.objs_within_roi(area_roi, self.soma_map, self.soma_config)
+
+        if (obj_list == None):
+            raise rospy.ROSException('Could not find any object in %s SoMa ROI' %room_id)
+
+        result = []
+        for obj in obj_list:
+            result.append(self.get_target_object(obj["soma_id"]))
+
+        return result
+
+    def get_room_id_containing_object_id(self, target_id):
+        print "retrieving room with object id '%s'"%target_id
+        rois = self.geospatial_store.rois_containing_obj(target_id, self.soma_map, self.soma_config)
+
+        if len(rois) == 0:
+            raise rospy.ROSException('The object with id %s is not in a SoMa ROI' % target_id)
+
+        # just choose the first ROI
+        return rois[0]
+
+    def get_room_id_from_model_name(self, model_name):
+        object_id   = model_name.split("_")[1]
+        return self.get_room_id_containing_object_id(object_id)
 
     def get_best_pose(self, bounds, model, samples = 100):
         """ 
@@ -116,10 +156,10 @@ class SpatialModelServer(object):
         point_y = req.pose.pose.position.y
         good    = req.good
 
-        soma_obj = self.get_soma_object(req.predicate.arguments[0])
+        target_obj = self.get_target_object(req.predicate.arguments[0])
 
-        if soma_obj is None:
-            raise rospy.ROSException('The object with id %s is not in the SoMa message store' % landmark)
+        if target_obj is None:
+            raise rospy.ROSException('The object with id %s is not in the SoMa message store' % target_id)
 
         if not (key in self.aggregate_models_dictionary):
             raise rospy.ROSException('Could not find aggregate model for key %s' % key)
@@ -129,7 +169,7 @@ class SpatialModelServer(object):
 
         if rospy.get_param('~visualise_model', True):
             map_width = 5
-            model_pcloud = support_functions.model_to_pc2(self.aggregate_models_dictionary[key], soma_obj.pose.position.x - map_width / 2, soma_obj.pose.position.y - map_width / 2, 0.02, map_width, map_width)
+            model_pcloud = support_functions.model_to_pc2(self.aggregate_models_dictionary[key], target_obj.pose.position.x - map_width / 2, target_obj.pose.position.y - map_width / 2, 0.02, map_width, map_width)
             self.model_cloud.publish(model_pcloud)    
              
         return True
@@ -139,83 +179,75 @@ class SpatialModelServer(object):
         """
         Generates a pose that sastisfies the given spatial predicate
         """
-
-        # used for debugging 
-        transfer_model = True
-
         # assume just near for now
-        name = req.predicate.name
-        args = req.predicate.arguments
-        assert name == 'near'
-        assert len(args) == 1
-        
-        # and the landmark is the 
-        landmark = args[0]
+        assert req.predicate.name == 'near'
+        assert len(req.predicate.arguments) == 1
 
-        rois = self.geospatial_store.rois_containing_obj(landmark, self.soma_map, self.soma_config)
+        name            = req.predicate.name
+        target_id       = req.predicate.arguments[0]
 
-        if len(rois) == 0:
-            raise rospy.ROSException('The object with id %s is not in a SoMa ROI' % landmark)
-
-        # just choose the first ROI
-        roi = rois[0]
+        target_room_id  = self.get_room_id_containing_object_id(target_id)
 
         # create the model centred at the object given
-        soma_obj = self.get_soma_object(landmark)
+        target_obj = self.get_target_object(target_id)
 
-        if soma_obj is None:
-            raise rospy.ROSException('The object with id %s is not in the SoMa message store' % landmark)            
+        if target_obj is None:
+            raise rospy.ROSException('The object with id %s is not in the SoMa message store' % target_id)            
 
+        model_name          = support_functions.predicate_to_key(req.predicate)
+        similar_model_name  = self.get_similar_room_model_name(name, target_id)
 
         # if I know the model I use the previous one otherwise I instantiate a new model
-        # if I am visiting a new room and the previous one has at least n points I transfer, otherwise I learn my usual model
-        # transfer: with old model generate a bunch of good and bad poses
-        similar_model_name = self.get_similar_room_model(name,landmark)
+        # if I am visiting a new room and the previous one has at least n points I transfer, otherwise I learn starting from my default model
 
-        if (support_functions.predicate_to_key(req.predicate) in self.aggregate_models_dictionary):
+        if (model_name in self.aggregate_models_dictionary):
             # I already have a model for this
-            print "Model %s already known. Retrieving the old one"%support_functions.predicate_to_key(req.predicate)
-            model = self.aggregate_models_dictionary[support_functions.predicate_to_key(req.predicate)]
+            print "Model %s already known. Retrieving the old one..."%model_name
+            model = self.aggregate_models_dictionary[model_name]
 
         elif (similar_model_name != None):
             # I can retrieve a similar model for the new room
-            # FIXME change the hardcoded values
-            print "Transferring model %s to model %s..."%(similar_model_name, support_functions.predicate_to_key(req.predicate))
-            table               = self.get_soma_object('1')   
-            chair               = self.get_soma_object('2')
-            cabinet             = self.get_soma_object('3')  
-            table1              = self.get_soma_object('6')   
-            chair1              = self.get_soma_object('7')
-            cabinet1            = self.get_soma_object('8') 
-            # TODO: objects_list        = get_objects_list() 
 
-            good_sample_poses, bad_sample_poses = self.get_sample_poses(chair.pose, similar_model_name)
+            similar_room_id                     = self.get_room_id_from_model_name(similar_model_name)
+            objects_in_similar_room             = self.get_objects_in_room(similar_room_id)
+            objects_in_target_room              = self.get_objects_in_room(target_room_id)
+            similar_target_obj                  = self.get_similar_object(target_obj, objects_in_similar_room)
 
-            #bad_sample_poses = [support_functions.mkpose(-1, 0.15), support_functions.mkpose(-0.1, -0.25), support_functions.mkpose(-1, 0.1)]
-            #good_sample_poses =  [support_functions.mkpose(0.9, 0.5), support_functions.mkpose(0.95, 1.05), support_functions.mkpose(0.7, 0.25)]
+            good_sample_poses, bad_sample_poses = self.get_sample_poses(similar_target_obj.pose, similar_model_name)
 
-            default_model      = transfer.build_relational_models(chair, soma_obj, bad_sample_poses, good_sample_poses, [cabinet,table], [cabinet1, table1], {'near': support_functions.distance,'relative_angle': support_functions.unit_circle_position}, self)
+            objects_in_target_room              = support_functions.get_reordered_object_lists(objects_in_similar_room, objects_in_target_room)
+
+            print "lista 1: "
+            for i in objects_in_similar_room:
+                print i.id
+
+            print "lista 2:"
+            for i in objects_in_target_room:
+                print i.id
+
+
+            print "Transferring model from room %s to room %s..."%(similar_room_id, target_room_id)
+            
+            default_model      = transfer.build_relational_models(similar_target_obj, target_obj, bad_sample_poses, good_sample_poses, objects_in_similar_room, objects_in_target_room, {'near': support_functions.distance,'relative_angle': support_functions.unit_circle_position}, self)
             model              = models.AggregateModel(default_model)
 
-            self.aggregate_models_dictionary[support_functions.predicate_to_key(req.predicate)] = model
+            self.aggregate_models_dictionary[model_name] = model
 
         else:
             # I use the default near model
-            print "Uknown model %s initializing a new one..."%support_functions.predicate_to_key(req.predicate)
-            model = models.AggregateModel(models.NearModel(soma_obj.pose, 1.5))
-            self.aggregate_models_dictionary[support_functions.predicate_to_key(req.predicate)] = model
+            print "Uknown model %s initializing a new one..."%model_name
+            model = models.AggregateModel(models.NearModel(target_obj.pose, 1.5))
+            self.aggregate_models_dictionary[model_name] = model
 
-        map_width = 10
-        pcloud = support_functions.model_to_pc2(model, soma_obj.pose.position.x - map_width / 2, soma_obj.pose.position.y - map_width / 2, 0.04, map_width, map_width)
+        map_width   = 10
+        pcloud      = support_functions.model_to_pc2(model, target_obj.pose.position.x - map_width / 2, target_obj.pose.position.y - map_width / 2, 0.04, map_width, map_width)
         self.model_cloud.publish(pcloud)
-        #raw_input("Showing model for target position...")
 
-        bounds = self.soma_roi_query.get_polygon(roi)
-        
-        pose = self.get_best_pose(bounds, model)
+        bounds  = self.soma_roi_query.get_polygon(target_room_id)
+        pose    = self.get_best_pose(bounds, model)
 
         # rotate to point
-        pose.orientation = support_functions.quarternion_to_point(pose.position, soma_obj.pose.position)
+        pose.orientation = support_functions.quarternion_to_point(pose.position, target_obj.pose.position)
 
         # stamp it so that we know the frame
         stamped_pose = PoseStamped(pose = pose)

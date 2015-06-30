@@ -15,7 +15,7 @@ import matplotlib.pyplot as plt
 
 
 def predicate_to_key(predicate):
-    return predicate.name + "_" + str(predicate.arguments).replace(",","_")[1:-1]
+    return predicate.name + "_" + str(predicate.arguments).replace(",","_")[1:-1].replace("'","")
 
 
 
@@ -113,7 +113,6 @@ def unit_circle_position_pose_xy(landmark, target):
     return [x, y]
 
 
-
 def to_spatial_relation(landmark, targets, fn):
     return np.array([fn(landmark, target) for target in targets])
 
@@ -207,3 +206,20 @@ def draw_pose_arrow(pose, arrow_length = 1, annotation = ''):
             arrowprops=dict(arrowstyle="->",
                             connectionstyle="arc3"),
             )
+
+
+
+def get_reordered_object_lists(list1, list2):
+    temp_list = []
+
+    for item1 in list1:
+        for item2 in list2:
+            if item2.type == item1.type:
+                temp_list.append(item2)
+                break
+
+    return temp_list
+
+
+
+

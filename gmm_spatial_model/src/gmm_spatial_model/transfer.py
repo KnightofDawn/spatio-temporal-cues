@@ -20,7 +20,7 @@ import spatial_relation_graph
 import support_functions
 import time
 
-PLOT_DRAWING = False
+PLOT_DRAWING = True
 
 # threshold used to eliminate bad resulting models
 CLASSIFIER_THRESHOLD = 0.8
@@ -77,11 +77,11 @@ def build_relational_models(old_target, new_target, bad_sample_poses, good_sampl
 
             old_model   = models.TransferModel(landmarks[i], classifier, classifier_loss, relation_name)
 
-            map_width = 10
-            pcloud = support_functions.model_to_pc2(old_model, landmarks[i].pose.position.x - map_width / 2, landmarks[i].pose.position.y - map_width / 2, 0.04, map_width, map_width)
+            map_width = 6
+            pcloud = support_functions.model_to_pc2(old_model, landmarks[i].pose.position.x - map_width / 2, landmarks[i].pose.position.y - map_width / 2, 0.02, map_width, map_width)
             server.model_cloud.publish(pcloud)
 
-            raw_input("press enter...")
+            time.sleep(2)
 
             # I search for which function I need to call in order to change my classifier (for now I just have to choose between a transpose and identity functions)
             classifier_modify_function  = spatial_relation_graph.get_spatial_relation_graph_function(relation_name, srg1, srg2, landmarks[i], transferred_landmarks[i])
@@ -91,11 +91,11 @@ def build_relational_models(old_target, new_target, bad_sample_poses, good_sampl
             # I produce the transfer model using the classifier
             model = models.TransferModel(transferred_landmarks[i], classifier, classifier_loss, relation_name)
 
-            map_width = 10
-            pcloud = support_functions.model_to_pc2(model, transferred_landmarks[i].pose.position.x - map_width / 2, transferred_landmarks[i].pose.position.y - map_width / 2, 0.04, map_width, map_width)
+            map_width = 6
+            pcloud = support_functions.model_to_pc2(model, transferred_landmarks[i].pose.position.x - map_width / 2, transferred_landmarks[i].pose.position.y - map_width / 2, 0.02, map_width, map_width)
             server.model_cloud.publish(pcloud)
 
-            raw_input("press enter...")
+            time.sleep(2)
 
             if PLOT_DRAWING:
                 list_for_drawing.append((relation_name, landmarks[i], relation_metrics, classifier, classifier_loss))
