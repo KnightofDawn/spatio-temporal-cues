@@ -3,7 +3,7 @@
 import rospy
 import numpy as np
 from geometry_msgs.msg import PoseStamped, Pose, Quaternion, Point
-from math import atan2, pi, cos, sin, radians
+from math import atan2, pi, cos, sin, radians, degrees
 from tf.transformations import euler_from_quaternion, quaternion_from_euler
 from scipy.spatial.distance import euclidean
 import sensor_msgs.point_cloud2 as pc2
@@ -105,6 +105,7 @@ def unit_circle_position_pose_xy(landmark, target):
     landmark_angle = euler_from_quaternion(quaternion_msg_to_np(landmark.orientation))[2]   
     # how much you'd need to rotate landmark by to point at target
     relative_angle = pointing_at_target - landmark_angle
+
     # now, turn that relative angle into an x,y point on a unit circle
     # this 1 * cos(angle) and 1 * sin(angle)
     x = cos(relative_angle)
@@ -178,3 +179,31 @@ def create_cloud_xyzrgb(header, points):
               PointField('z', 8, PointField.FLOAT32, 1),
               PointField('rgb', 12, PointField.UINT32, 1)]
     return pc2.create_cloud(header, fields, points)
+
+
+def centre_plot_on_pose(pose, map_width = 3):
+    plt.axis((pose.position.x - map_width / 2,
+                pose.position.x + map_width / 2,
+                pose.position.y - map_width / 2,
+                pose.position.y + map_width / 2))
+
+
+def draw_pose_arrow(pose, arrow_length = 1, annotation = ''):
+
+    # ax.arrow(landmark_pose.position.x, landmark_pose.position.y, 
+    #   , 
+    #   head_width=0.05, head_length=0.1, fc='k', ec='k')
+
+    start = (pose.position.x , pose.position.y)
+    angle = euler_from_quaternion(quaternion_msg_to_np(pose.orientation))[2]   
+
+    dx = arrow_length * cos(angle)
+    dy = arrow_length * sin(angle)
+    end = (pose.position.x + dx, pose.position.y + dy)
+
+    plt.annotate(annotation,
+            xy=end, xycoords='data',
+            xytext=start, textcoords='data',
+            arrowprops=dict(arrowstyle="->",
+                            connectionstyle="arc3"),
+            )

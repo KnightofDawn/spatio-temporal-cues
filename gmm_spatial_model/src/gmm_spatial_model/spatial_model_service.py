@@ -65,10 +65,10 @@ class SpatialModelServer(object):
 
 
         for pose in good_rel_poses:
-            good_glob_poses.append(support_functions.mkpose(pose[0] + target_x,  pose[1] + target_y))
+            good_glob_poses.append(support_functions.mkpose(pose[0],  pose[1]))
 
         for pose in bad_rel_poses:
-            bad_glob_poses.append(support_functions.mkpose(pose[0] + target_x,  pose[1] + target_y))
+            bad_glob_poses.append(support_functions.mkpose(pose[0],  pose[1]))
 
         return (good_glob_poses, bad_glob_poses)
 
@@ -189,17 +189,15 @@ class SpatialModelServer(object):
             cabinet1            = self.get_soma_object('8') 
             # TODO: objects_list        = get_objects_list() 
 
-            good_sample_poses, bad_sample_poses = self.get_sample_poses(soma_obj.pose, similar_model_name)
+            good_sample_poses, bad_sample_poses = self.get_sample_poses(chair.pose, similar_model_name)
 
             #bad_sample_poses = [support_functions.mkpose(-1, 0.15), support_functions.mkpose(-0.1, -0.25), support_functions.mkpose(-1, 0.1)]
             #good_sample_poses =  [support_functions.mkpose(0.9, 0.5), support_functions.mkpose(0.95, 1.05), support_functions.mkpose(0.7, 0.25)]
 
-            default_model      = transfer.build_relational_models(bad_sample_poses, good_sample_poses, [cabinet,table], [cabinet1, table1], {'near': support_functions.distance,'relative_angle': support_functions.unit_circle_position}, self)
+            default_model      = transfer.build_relational_models(chair, soma_obj, bad_sample_poses, good_sample_poses, [cabinet,table], [cabinet1, table1], {'near': support_functions.distance,'relative_angle': support_functions.unit_circle_position}, self)
             model              = models.AggregateModel(default_model)
 
             self.aggregate_models_dictionary[support_functions.predicate_to_key(req.predicate)] = model
-            
-            print "Generated new transferred model:\n%s"%default_model
 
         else:
             # I use the default near model
@@ -224,10 +222,7 @@ class SpatialModelServer(object):
         stamped_pose.header.stamp = rospy.get_rostime()
         stamped_pose.header.frame_id = 'map'
 
-
-
-        if rospy.get_param('~visualise_model', True):
-            self.best_pose.publish(stamped_pose)
+        self.best_pose.publish(stamped_pose)
 
         return stamped_pose
 

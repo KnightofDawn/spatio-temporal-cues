@@ -12,7 +12,7 @@ def go(obj_id):
     try:
         rospy.loginfo('getting pose for: %s(%s)' % (pred, args))                        
         pose = get_pose(SpatialPredicate(pred, args)).pose
-        rospy.loginfo("pose retrieved!")
+        rospy.loginfo("pose retrieved: %s"%pose)
 
     except rospy.ServiceException as exc:
         rospy.loginfo("Error calling service: " + str(exc))

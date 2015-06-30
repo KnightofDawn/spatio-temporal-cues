@@ -20,14 +20,15 @@ import spatial_relation_graph
 import support_functions
 import time
 
+PLOT_DRAWING = False
 
 # threshold used to eliminate bad resulting models
 CLASSIFIER_THRESHOLD = 0.8
 
-def build_relational_models(bad_sample_poses, good_sample_poses, landmarks, transferred_landmarks, relation_fns, server):
-    results = []
-    results_for_visualization = []
-    model   = None
+def build_relational_models(old_target, new_target, bad_sample_poses, good_sample_poses, landmarks, transferred_landmarks, relation_fns, server):
+    results             = []
+    list_for_drawing    = []
+    model               = None
 
     # getting the area roi of the first room
     rois = server.geospatial_store.rois_containing_obj(landmarks[0].id, server.soma_map, server.soma_config)
@@ -82,7 +83,7 @@ def build_relational_models(bad_sample_poses, good_sample_poses, landmarks, tran
 
             raw_input("press enter...")
 
-            # I search for which function I need to call in order to change my classifier (for now I just have a transpose and identity function)
+            # I search for which function I need to call in order to change my classifier (for now I just have to choose between a transpose and identity functions)
             classifier_modify_function  = spatial_relation_graph.get_spatial_relation_graph_function(relation_name, srg1, srg2, landmarks[i], transferred_landmarks[i])
             # I apply this function to the classifier
             classifier_modify_function(classifier)
@@ -96,7 +97,14 @@ def build_relational_models(bad_sample_poses, good_sample_poses, landmarks, tran
 
             raw_input("press enter...")
 
+            if PLOT_DRAWING:
+                list_for_drawing.append((relation_name, landmarks[i], relation_metrics, classifier, classifier_loss))
+
             results.append(model)
+
+    if PLOT_DRAWING:
+        visualise_relations(old_target, landmarks, bad_sample_poses, good_sample_poses, list_for_drawing)
+
 
     return results
 
@@ -106,13 +114,16 @@ def visualise_relations(target, landmarks, bad_sample_poses, good_sample_poses, 
     good_samples = support_functions.pose_list_to_np(good_sample_poses)
     bad_samples = support_functions.pose_list_to_np(bad_sample_poses)
 
-
     plt.figure(1)
     plt.subplot(2, len(classifier_results), 1) 
 
-    centre_plot_on_pose(target.pose, 6)
+    support_functions.centre_plot_on_pose(target.pose, 6)
 
-    draw_pose_arrow(target.pose, arrow_length = 0.5)
+    support_functions.draw_pose_arrow(target.pose, arrow_length = 0.5)
+
+    for p in landmarks:
+        support_functions.draw_pose_arrow(p.pose, arrow_length = 0.2)
+
     
     plt.scatter([p.pose.position.x for p in landmarks], 
                     [p.pose.position.y for p in landmarks],

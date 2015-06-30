@@ -79,7 +79,7 @@ def identity_function(classifier):
 
 
 def get_spatial_relation_graph_function(relation, srg1, srg2, obj1, obj2):
-	if (obj1.type == "Drawer") and (relation == "relative_angle"):
+	if ((obj1.type == "Drawer") or (obj1.type == "Table")) and (relation == "relative_angle"):
 		return transpose_function
 	else:
 		return identity_function
