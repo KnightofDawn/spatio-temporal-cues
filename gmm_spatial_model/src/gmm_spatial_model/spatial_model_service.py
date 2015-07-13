@@ -229,6 +229,7 @@ class SpatialModelServer(object):
             print "Transferring model from room %s to room %s..."%(similar_room_id, target_room_id)
             
             default_model      = transfer.build_relational_models(similar_target_obj, target_obj, bad_sample_poses, good_sample_poses, objects_in_similar_room, objects_in_target_room, {'near': support_functions.distance,'relative_angle': support_functions.unit_circle_position}, self)
+
             model              = models.AggregateModel(default_model)
 
             self.aggregate_models_dictionary[model_name] = model

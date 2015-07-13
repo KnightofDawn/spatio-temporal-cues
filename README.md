@@ -51,3 +51,28 @@ Trigger a spatial model generation with
 rosrun gmm_spatial_model spatial_model_client.py near 2
 ```
 
+
+# Datasets
+
+## University of Birmingham, School of Computer Science, First Floor
+
+### Adding Data
+
+1. Start mongodb as above
+2. ``` cd `rospack find gmm_spatial_model`/../data/bham_cs_1 ```
+3. `mongorestore   -h localhost --port 62345 dump`
+
+This adds data to the soma and soma_roi message_store collections. There is not yet a geospatial store for this data, but we can make one if necessary.
+
+### Viewing Data
+
+You can view the data in rviz as follows. 
+
+1. Start mongodb as above
+1. ``` rosrun map_server map_server `rospack find gmm_spatial_model`/../data/bham_cs_1/map/cs_1f_20140724.yaml ```
+2. `rosrun soma_manager soma.py 1f_20140724 default`
+3. `rosrun soma_roi_manager soma_roi.py 1f_20140724 default`
+4. ``` rviz -d `rospack find gmm_spatial_model`/spatial-cues.rviz ```
+
+
+
